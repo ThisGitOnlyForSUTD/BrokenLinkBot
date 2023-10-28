@@ -17,6 +17,7 @@ bot.onText(/\/start/, (msg) => {
   if (!userRequests.has(uniqueRequestId)) {
     userRequests.add(uniqueRequestId)
     sendReport(chatId)
+    console.log(`Запрос на проверку ссылок отправлен для чата ${chatId}`)
   }
 })
 
@@ -26,6 +27,7 @@ bot.on('callback_query', (query) => {
     if (!userRequests.has(chatId)) {
       userRequests.add(chatId)
       sendReport(chatId)
+      console.log(`Запрос на проверку ссылок отправлен для чата ${chatId}`)
     }
   }
 })
@@ -34,8 +36,8 @@ bot.on('text', (msg) => {
   const chatId = msg.chat.id
   if (!userRequests.has(chatId)) {
     userRequests.add(chatId)
-    userChatIds.set(chatId, msg.from.id)
     sendReport(chatId)
+    console.log(`Запрос на проверку ссылок отправлен для чата ${chatId}`)
   }
 })
 
@@ -47,9 +49,9 @@ async function findBrokenLinks(chatId) {
     const brokenLinks = []
     const goodLinks = []
 
-    for (let i = 0 i < links.length i++) {
+    for (let i = 0; i < links.length; i++) {
       const href = $(links[i]).attr('href')
-      if (isBroken(href)) {
+      if (await isBroken(href)) {
         brokenLinks.push(href)
       } else {
         goodLinks.push(href)
@@ -62,6 +64,7 @@ async function findBrokenLinks(chatId) {
       bot.sendDocument(chatId, 'broken_links.txt', {
         caption: 'Битые ссылки на сайте meet-market.ru'
       })
+      console.log(`Отправлены битые ссылки для чата ${chatId}`)
     }
 
     if (goodLinks.length > 0) {
@@ -70,22 +73,32 @@ async function findBrokenLinks(chatId) {
       bot.sendDocument(chatId, 'good_links.txt', {
         caption: 'Небитые ссылки на сайте meet-market.ru'
       })
+      console.log(`Отправлены небитые ссылки для чата ${chatId}`)
     }
 
     if (brokenLinks.length === 0 && goodLinks.length === 0) {
       bot.sendMessage(chatId, 'На сайте meet-market.ru нет битых или небитых ссылок.')
+      console.log(`Сайт meet-market.ru не содержит битых или небитых ссылок для чата ${chatId}`)
     }
   } catch (error) {
     console.error('Ошибка при скрапинге сайта:', error)
     bot.sendMessage(chatId, 'Произошла ошибка при проверке ссылок.')
+    console.log(`Произошла ошибка при проверке ссылок для чата ${chatId}: ${error.message}`)
   }
 }
 
-function isBroken(href) {
-  return false
+//прокидываем запрос на проверку битой ссылки
+async function isBroken(href) {
+  try {
+    const response = await axios.head(href)
+    return response.status === 200
+  } catch (error) {
+    return false
+  }
 }
 
 async function sendReport(chatId) {
   bot.sendMessage(chatId, 'Я еще проверяю ваш сайт на наличие битых ссылок')
+  console.log(`Начата проверка ссылок для чата ${chatId}`)
   findBrokenLinks(chatId)
 }
